@@ -1,167 +1,133 @@
-# Contentful GraphQL Proxy
+# walks-server: Contentful GraphQL Proxy
 
-A Spring Boot middleware that sits between your Android app and Contentful, providing:
+Spring Boot (Kotlin) middleware that sits between your client and Contentful GraphQL, providing:
 
-- **Caching** (Caffeine in-memory, 10 min TTL) to dramatically reduce response times
-- **Simplified schema** — `sys { id }` is flattened to just `id: ID!`, locale args removed
-- **GraphiQL UI** at `/graphiql` for testing
-- **Cache management** REST endpoints
-- **Clean error handling** with proper GraphQL error responses
+- Caching (Caffeine in-memory, configurable TTLs)
+- A simplified GraphQL schema (flattens `sys { id }`, removes locale args, etc.)
+- GraphiQL UI for testing
+- Cache management endpoints
+- Actuator health/metrics
 
 ## Architecture
 
 ```
-Android App ──► Spring Boot Proxy ──► Contentful GraphQL API
-                    │
-                    └── Caffeine Cache (in-memory, per query type)
+Client ──► Spring Boot Proxy ──► Contentful GraphQL API
+              │
+              └── Caffeine Cache (in-memory, per query type)
 ```
 
-## Quick Start
+## Endpoints
 
-### 1. Configure environment variables
+- GraphQL: `POST /graphql`
+- GraphiQL: `GET /graphiql`
+- Cache admin:
+  - `GET /admin/cache`
+  - `DELETE /admin/cache`
+  - `DELETE /admin/cache/{name}`
+  - `DELETE /admin/cache/{name}/{key}`
+- Health: `GET /actuator/health`
 
-```bash
+## Configuration
+
+Environment variables (see `src/main/resources/application.yml`):
+
+```sh
 export CONTENTFUL_SPACE_ID=your_space_id
 export CONTENTFUL_ACCESS_TOKEN=your_access_token
 export CONTENTFUL_ENVIRONMENT=master          # optional, default: master
 export CONTENTFUL_DEFAULT_LOCALE=en-US        # optional, default: en-US
 ```
 
-Or edit `src/main/resources/application.yml` directly.
+## Local Development (Gradle)
 
-### 2. Run
+Run:
 
-```bash
-./mvnw spring-boot:run
+```sh
+./gradlew bootRun
 ```
 
-Server starts on **http://localhost:8080**
+App starts on `http://localhost:8080`.
 
-### 3. Open GraphiQL
+Build a runnable jar:
 
-Navigate to **http://localhost:8080/graphiql** to explore and test the simplified schema.
-
----
-
-## Simplified Schema vs Contentful Schema
-
-| Contentful (complex) | This Proxy (simplified) |
-|---|---|
-| `sys { id }` everywhere | `id: ID!` directly on the type |
-| `title(locale: String)` | `title: String!` (locale from config) |
-| `imagesCollection { items { ... } }` | `images: [Asset!]!` |
-| `categoriesCollection { items { ... } }` | `categories: [Category!]!` |
-| `pointOfInterestCollection(locale, where)` | `pointOfInterests: [PointOfInterest!]!` |
-
-### Example: Old Android query
-```graphql
-query {
-  tour(locale: "en-US", id: "abc123") {
-    sys { id }
-    title(locale: "en-US")
-    pointOfInterestCollection(locale: "en-US") {
-      items {
-        sys { id }
-        title(locale: "en-US")
-      }
-    }
-  }
-}
+```sh
+./gradlew bootJar
+java -jar build/libs/*.jar
 ```
 
-### Example: New Android query (via this proxy)
-```graphql
-query {
-  tour(id: "abc123") {
-    id
-    title
-    pointOfInterests {
-      id
-      title
-    }
-  }
-}
+## Docker
+
+This repo includes a `Dockerfile` that builds and runs the Spring Boot fat jar.
+
+Build:
+
+```sh
+docker build -t walks-server:local .
 ```
 
----
+Run:
 
-## Available Queries
-
-```graphql
-tour(id: String!): Tour!
-tours(ids: [String!]): [Tour!]!
-
-pointOfInterest(id: String!): PointOfInterest!
-pointOfInterests(limit: Int, categoryName: String): [PointOfInterest!]!
-
-region(id: String!): Region!
-regions: [Region!]!
-
-category(id: String!): Category!
-categories: [Category!]!
-
-audioGuide(id: String!): AudioGuide!
-
-onboardings: [Onboarding!]!
-
-home(id: String!): Home!
-homes: [Home!]!
+```sh
+docker run --rm -p 8080:8080 \
+  -e CONTENTFUL_SPACE_ID=... \
+  -e CONTENTFUL_ACCESS_TOKEN=... \
+  walks-server:local
 ```
 
----
+## Production: OCI VM + Docker Compose + Nginx (HTTPS)
 
-## Cache Management
+Production stack lives in `ops/`:
 
-### List caches
-```
-GET /admin/cache
-```
+- `ops/docker-compose.prod.yml`: `app` + `nginx` (80/443) + `certbot` (Let’s Encrypt renewal)
+- `ops/nginx/templates/default.conf.template`: reverse proxy to `app:8080`
 
-### Evict all caches
-```
-DELETE /admin/cache
-```
+On the VM:
 
-### Evict specific cache
-```
-DELETE /admin/cache/{name}
-# e.g. DELETE /admin/cache/tour
-```
-
-### Evict specific key
-```
-DELETE /admin/cache/{name}/{key}
-# e.g. DELETE /admin/cache/tour/abc123
-```
-
-Cache names: `tour`, `pointOfInterest`, `region`, `category`, `audioGuide`, `onboarding`, `home`
-
----
-
-## Cache Configuration
-
-Edit `application.yml` to tune cache behavior:
-
-```yaml
-spring:
-  cache:
-    caffeine:
-      spec: maximumSize=1000,expireAfterWrite=10m
-```
-
-Or change per-type TTL by giving each `CacheManager` bean its own spec in `CacheConfig.java`.
-
----
-
-## Production Notes
-
-1. **Secure `/admin/cache`** with Spring Security
-2. **Scale**: Replace Caffeine with Redis for multi-instance deployments:
-   ```xml
-   <dependency>
-     <groupId>org.springframework.boot</groupId>
-     <artifactId>spring-boot-starter-data-redis</artifactId>
-   </dependency>
+1. Create `/opt/walks-server/.env` from `ops/.env.example` and set `DOMAIN`, `CERTBOT_EMAIL`, `CONTENTFUL_*`.
+2. Upload `ops/` to `/opt/walks-server/ops` (CI does this automatically).
+3. One-time HTTPS issuance:
+   ```sh
+   cd /opt/walks-server/ops
+   chmod +x scripts/*.sh
+   ./scripts/init-letsencrypt.sh /opt/walks-server/.env
    ```
-3. **Health check**: `GET /actuator/health`
-4. **Metrics**: `GET /actuator/metrics`
+4. Deploy/update:
+   ```sh
+   ./scripts/remote-deploy.sh /opt/walks-server/.env
+   ```
+
+More detail: `ops/README.md`.
+
+## CI/CD (GitHub Actions -> OCIR -> OCI VM)
+
+Workflow: `.github/workflows/deploy.yml`
+
+On each push to `main`, it:
+
+1. Builds and pushes a multi-arch image to OCIR.
+2. Uploads `ops/` to `/opt/walks-server/ops` on the VM.
+3. Pulls and restarts the compose stack with `APP_TAG=$GITHUB_SHA`.
+
+Required GitHub secrets are listed in `ops/README.md`.
+
+## Terraform (No OCI Console Clicking)
+
+Terraform stack: `ops/terraform`
+
+It can provision:
+
+- Always Free ARM VM (`VM.Standard.A1.Flex`)
+- VCN + subnet + internet gateway + routes + security rules (22/80/443)
+- Cloud-init bootstrap: Docker/Compose/Git/UFW (+ optional host nginx/certbot, optional Java)
+
+See `ops/terraform/README.md`.
+
+## Codex Skills (Optional)
+
+This repo includes repo-local Codex skills under `codex-skills/` (so you can reuse the same workflows while working in this project):
+
+- `oci-deploy`
+- `terraform-oci`
+- `release-checks`
+
+If you want these installed into your Codex skills directory, tell me what your Codex setup expects (or paste your preferred skills location) and I’ll wire up an install command/flow.
