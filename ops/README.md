@@ -41,12 +41,12 @@ Workflow: `.github/workflows/deploy.yml`
 
 Required GitHub secrets:
 
-- `OCIR_REGISTRY` (example: `fra.ocir.io`)
-- `OCIR_REPOSITORY` (example: `tenancy_namespace/walks-server`)
-- `OCIR_USERNAME` (OCIR username format per your tenancy, often `tenancy_namespace/username`)
+- `OCIR_REGISTRY` (example: `nrq.ocir.io` for `eu-turin-1` / Italy North)
+- `OCIR_REPOSITORY` (example: `brunodushi/walks-server`)
+- `OCIR_USERNAME` (OCIR username format per your tenancy, often `brunodushi/username`)
 - `OCIR_PASSWORD` (OCI Auth Token)
 - `ORACLE_HOST` (VM public IP or DNS)
-- `ORACLE_USER` (SSH user, e.g. `opc`)
+- `ORACLE_USER` (SSH user, e.g. `ubuntu`)
 - `ORACLE_SSH_PRIVATE_KEY` (private key contents for SSH)
 
 On push to `main`, the workflow:

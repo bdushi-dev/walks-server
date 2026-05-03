@@ -26,8 +26,8 @@ jobs:
 
       - name: Login to OCIR
         env:
-          OCIR_REGISTRY: ${{ secrets.OCIR_REGISTRY }} # e.g. fra.ocir.io
-          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }} # e.g. tenancy_namespace/your.user (or full federated username)
+          OCIR_REGISTRY: ${{ secrets.OCIR_REGISTRY }} # e.g. nrq.ocir.io (eu-turin-1 / Italy North)
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }} # e.g. brunodushi/your.user (or full federated username)
           OCIR_PASSWORD: ${{ secrets.OCIR_PASSWORD }} # OCI Auth Token
         run: |
           echo "$OCIR_PASSWORD" | docker login "$OCIR_REGISTRY" -u "$OCIR_USERNAME" --password-stdin
@@ -35,7 +35,7 @@ jobs:
       - name: Build and push image
         env:
           OCIR_REGISTRY: ${{ secrets.OCIR_REGISTRY }}
-          OCIR_REPOSITORY: ${{ secrets.OCIR_REPOSITORY }} # e.g. tenancy_namespace/walks-server
+          OCIR_REPOSITORY: ${{ secrets.OCIR_REPOSITORY }} # e.g. brunodushi/walks-server
         run: |
           IMAGE="$OCIR_REGISTRY/$OCIR_REPOSITORY"
           docker buildx build \

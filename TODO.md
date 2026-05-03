@@ -4,6 +4,8 @@ This repo contains Docker + Nginx HTTPS + CI/CD + optional Terraform, but there 
 
 ## 1) Choose Your Container Registry (OCIR vs GHCR)
 
+This repo is currently intended to use **OCIR (Oracle Container Registry)** for image pushes/pulls. The **GHCR** notes below are kept as an alternative if you decide to switch registries later.
+
 ### Option A: GHCR (GitHub Container Registry) (recommended for simplicity)
 
 Manual tasks:
@@ -26,9 +28,9 @@ Notes:
 Manual tasks:
 1. Create an OCI “Auth Token” for your OCI user (used as the Docker password).
 2. Populate GitHub secrets for:
-   - `OCIR_REGISTRY` (example: `fra.ocir.io`)
-   - `OCIR_REPOSITORY` (example: `tenancy_namespace/walks-server`)
-   - `OCIR_USERNAME` (often `tenancy_namespace/username` depending on tenancy setup)
+   - `OCIR_REGISTRY` (example: `nrq.ocir.io` for `eu-turin-1` / Italy North)
+   - `OCIR_REPOSITORY` (example: `brunodushi/walks-server`)
+   - `OCIR_USERNAME` (OCIR username format per your tenancy, often `brunodushi/username`)
    - `OCIR_PASSWORD` (OCI Auth Token)
 3. Ensure the VM can `docker login` to OCIR.
 
@@ -42,6 +44,13 @@ Manual tasks:
 2. Create an `A` record:
    - `api.yourdomain.com` -> your VM public IP
 3. Wait for DNS propagation before running Let’s Encrypt.
+
+For your domain:
+- Pick the API hostname you want to serve HTTPS on (recommended): `api.highalbania.al`
+- Create:
+  - `A` record: `api.highalbania.al` -> `<your OCI VM public IPv4>`
+- Then wait until:
+  - `dig +short api.highalbania.al` returns your VM IP (or use an online DNS checker).
 
 ## 3) GitHub Actions Secrets (CI/CD)
 
@@ -102,18 +111,48 @@ Terraform stack: `ops/terraform`
 
 Manual tasks on your laptop:
 1. Install Terraform.
+   - If you do not want Terraform on your laptop: you can run Terraform via CI (GitHub Actions), but you still must:
+     - provide OCI credentials as GitHub secrets, and
+     - configure a remote state backend (recommended) so state is persisted between runs.
 2. Configure OCI credentials (`~/.oci/config` or env vars).
 3. Fill `ops/terraform/terraform.tfvars`.
 4. Run:
    - `terraform init`
    - `terraform apply`
 
+CI/CD note:
+- Yes, `terraform apply` can be run in CI, but do not use ephemeral local state on GitHub runners.
+- If you want this, tell me which backend you prefer for Terraform state:
+  - Terraform Cloud, or
+  - OCI Object Storage bucket (recommended if you want to stay inside OCI).
+
 Important:
-- If you use dockerized Nginx+Certbot from `ops/docker-compose.prod.yml`, keep `install_host_nginx_certbot=false` in Terraform to avoid port conflicts on `80/443`.
+- If you use dockerized Nginx+Certbot from `ops/docker-compose.prod.yml`, keep `install_host_nginx_certbot=false` in Terraform to avoid port conflicts on `80/443`. -> oky do it please
+  - This repo already defaults `install_host_nginx_certbot=false` in `ops/terraform/variables.tf` and in `terraform.tfvars.example`.
 
 ## Next Decision Needed
 
-1. Which registry do you want: GHCR or OCIR?
-2. If GHCR: what image name do you want (e.g. `ghcr.io/<user>/walks-server`)?
-3. What is your VM SSH user: `opc` or `ubuntu`?
+Selected choices:
+- Registry: **OCIR**
+- VM SSH user: `ubuntu`
 
+Note on “walks-dev” vs “walks-prod”:
+- Prefer using a single repository name (e.g. `brunodushi/walks-server`) and distinguish environments via image tags (`:dev`, `:prod`) and/or separate deploy targets.
+
+## What You Should Do Next (Given You Now Own `highalbania.al`)
+
+1. DNS:
+   - Create `A` record `api.highalbania.al` -> `<VM public IP>`.
+2. VM env file:
+   - On the VM, create/update `/opt/walks-server/.env` from `ops/.env.example` and set:
+     - `DOMAIN=api.highalbania.al`
+     - `CERTBOT_EMAIL=<your email>`
+     - `CONTENTFUL_SPACE_ID=...`
+     - `CONTENTFUL_ACCESS_TOKEN=...`
+3. GitHub secrets:
+   - Set the secrets listed in section 3 (OCIR + SSH).
+4. First HTTPS issuance:
+   - SSH to the VM and run the `init-letsencrypt.sh` command in section 5.
+5. First deploy:
+   - Push to `main` (or re-run the last workflow) and confirm:
+     - `https://api.highalbania.al/actuator/health` returns `UP` (or check the VM logs via `docker compose logs -f`).

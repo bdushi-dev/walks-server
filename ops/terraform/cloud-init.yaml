@@ -33,7 +33,7 @@ write_files:
       CERTBOT_EMAIL=admin@${domain}
 
       # Image to deploy (set by CI/CD)
-      APP_IMAGE=fra.ocir.io/your_tenancy_namespace/walks-server
+      APP_IMAGE=nrq.ocir.io/brunodushi/walks-server
       APP_TAG=latest
 
   - path: /etc/systemd/system/walks-server.service
