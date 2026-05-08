@@ -103,6 +103,10 @@ jobs:
         env:
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
         run: |
+          if [ -z "${ORACLE_HOST:-}" ]; then
+            echo "Missing required secret: ORACLE_HOST" >&2
+            exit 1
+          fi
           ssh-keyscan -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload ops bundle
@@ -123,6 +127,16 @@ jobs:
           OCIR_REPOSITORY: ${{ secrets.OCIR_REPOSITORY }}
         run: |
           IMAGE="$OCIR_REGISTRY/$OCIR_REPOSITORY"
+          if [ -z "${ORACLE_HOST:-}" ] || [ -z "${ORACLE_USER:-}" ]; then
+            echo "Missing required secrets: ORACLE_HOST and/or ORACLE_USER" >&2
+            exit 1
+          fi
+
+          # Login to OCIR on the VM. Pass the auth token via stdin so we don't fight shell quoting.
+          printf '%s' "$OCIR_PASSWORD" | ssh "${ORACLE_USER}@${ORACLE_HOST}" \
+            "docker login \"$OCIR_REGISTRY\" -u \"$OCIR_USERNAME\" --password-stdin"
+
+          # Deploy the stack on the VM.
           ssh "${ORACLE_USER}@${ORACLE_HOST}" "set -eu
             mkdir -p /opt/walks-server
             mkdir -p /opt/walks-server/ops/data/letsencrypt /opt/walks-server/ops/data/certbot-www
@@ -131,7 +145,6 @@ jobs:
               exit 1
             fi
             set -a; . /opt/walks-server/.env; set +a
-            echo '${OCIR_PASSWORD}' | docker login '${OCIR_REGISTRY}' -u '${OCIR_USERNAME}' --password-stdin
             cd /opt/walks-server/ops
             # Ensure nginx can start even before the first real Let's Encrypt issuance.
             if ! test -f \"/opt/walks-server/ops/data/letsencrypt/live/\$DOMAIN/fullchain.pem\"; then
@@ -145,6 +158,6 @@ jobs:
                   -subj /CN=\$DOMAIN >/dev/null 2>&1
               \"
             fi
-            APP_IMAGE='${IMAGE}' APP_TAG='${GITHUB_SHA}' docker compose -f docker-compose.prod.yml --env-file /opt/walks-server/.env pull
-            APP_IMAGE='${IMAGE}' APP_TAG='${GITHUB_SHA}' docker compose -f docker-compose.prod.yml --env-file /opt/walks-server/.env up -d --remove-orphans
+            APP_IMAGE=\"$IMAGE\" APP_TAG=\"$GITHUB_SHA\" docker compose -f docker-compose.prod.yml --env-file /opt/walks-server/.env pull
+            APP_IMAGE=\"$IMAGE\" APP_TAG=\"$GITHUB_SHA\" docker compose -f docker-compose.prod.yml --env-file /opt/walks-server/.env up -d --remove-orphans
           "
