@@ -29,7 +29,7 @@ Manual tasks:
 1. Create an OCI “Auth Token” for your OCI user (used as the Docker password).
 2. Populate GitHub secrets for:
    - `OCIR_REGISTRY` (example: `nrq.ocir.io` for `eu-turin-1` / Italy North)
-   - `OCIR_REPOSITORY` (example: `brunodushi/walks-server`)
+   - `OCIR_REPOSITORY` (example: `namespace/walks-server`)
    - `OCIR_USERNAME` (OCIR username format per your tenancy, often `brunodushi/username`)
    - `OCIR_PASSWORD` (OCI Auth Token)
 3. Ensure the VM can `docker login` to OCIR.

@@ -33,7 +33,9 @@ write_files:
       CERTBOT_EMAIL=admin@${domain}
 
       # Image to deploy (set by CI/CD)
-      APP_IMAGE=nrq.ocir.io/brunodushi/walks-server
+      # Note: OCIR uses your tenancy *namespace* (often not your tenancy name).
+      # Example format: <region-key>.ocir.io/<namespace>/<repo>
+      APP_IMAGE=nrq.ocir.io/axetkqockuac/walks-server
       APP_TAG=latest
 
   - path: /etc/systemd/system/walks-server.service
