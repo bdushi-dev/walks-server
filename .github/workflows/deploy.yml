@@ -3,6 +3,7 @@ name: Build and Deploy (OCI VM + Docker Compose)
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
