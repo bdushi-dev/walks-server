@@ -7,3 +7,7 @@ build/
 
 # Ops runtime data (certs, ACME webroot, etc.)
 ops/data/
+
+# Local env files (never commit secrets)
+.env
+ops/.env
