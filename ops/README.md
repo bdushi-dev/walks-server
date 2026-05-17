@@ -48,6 +48,10 @@ Required GitHub secrets:
 - `ORACLE_HOST` (VM public IP or DNS)
 - `ORACLE_USER` (SSH user, e.g. `ubuntu`)
 - `ORACLE_SSH_PRIVATE_KEY` (private key contents for SSH)
+- `WALKS_DOMAIN` (example: `api.example.com`)
+- `WALKS_CERTBOT_EMAIL` (example: `admin@example.com`)
+- `WALKS_CONTENTFUL_SPACE_ID`
+- `WALKS_CONTENTFUL_ACCESS_TOKEN`
 
 Notes:
 
