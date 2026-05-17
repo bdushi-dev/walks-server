@@ -79,13 +79,15 @@ docker run --rm -p 8080:8080 \
 Production stack lives in `ops/`:
 
 - `ops/docker-compose.prod.yml`: `app` + `nginx` (80/443) + `certbot` (Let’s Encrypt renewal)
-- `ops/nginx/templates/default.conf.template`: reverse proxy to `app:8080`
+- `ops/nginx/templates/walks.conf.template`: reverse proxy to `app:8080` (rendered by nginx image via `envsubst`)
 
 On the VM:
 
-1. Create `/opt/walks-server/.env` from `ops/.env.example` and set `DOMAIN`, `CERTBOT_EMAIL`, `CONTENTFUL_*`.
+1. Create `/opt/walks-server/.env`:
+   - Option A (recommended): let CI create it from GitHub Secrets (see `ops/README.md`).
+   - Option B: copy from `/opt/walks-server/ops/.env.example` and set `DOMAIN`, `CERTBOT_EMAIL`, `CONTENTFUL_*`.
 2. Upload `ops/` to `/opt/walks-server/ops` (CI does this automatically).
-3. One-time HTTPS issuance:
+3. One-time HTTPS issuance (required to get a real cert for port 443):
    ```sh
    cd /opt/walks-server/ops
    chmod +x scripts/*.sh

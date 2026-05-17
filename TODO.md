@@ -71,6 +71,11 @@ If using GHCR:
 
 If using OCIR:
 - `OCIR_REGISTRY`, `OCIR_REPOSITORY`, `OCIR_USERNAME`, `OCIR_PASSWORD`
+- App/runtime secrets used to create `/opt/walks-server/.env` on the VM (one-time):
+  - `WALKS_DOMAIN`
+  - `WALKS_CERTBOT_EMAIL`
+  - `WALKS_CONTENTFUL_SPACE_ID`
+  - `WALKS_CONTENTFUL_ACCESS_TOKEN`
 
 ## 4) VM Prereqs (If You Created the VM Manually)
 
@@ -78,8 +83,8 @@ Manual tasks on the VM:
 1. Install Docker Engine + Docker Compose v2 plugin.
 2. Open inbound ports:
    - `22` (SSH), `80` (HTTP), `443` (HTTPS)
-3. Create the runtime env file:
-   - `/opt/walks-server/.env` (copy from `ops/.env.example`)
+3. Create the runtime env file (only if you are not using the CI one-time creation step):
+   - `/opt/walks-server/.env` (copy from `/opt/walks-server/ops/.env.example` after `ops/` is uploaded)
    - set at least: `DOMAIN`, `CERTBOT_EMAIL`, `CONTENTFUL_SPACE_ID`, `CONTENTFUL_ACCESS_TOKEN`
 4. Upload `ops/` to:
    - `/opt/walks-server/ops`
@@ -97,6 +102,14 @@ If this fails, it’s usually one of:
 - DNS not pointing to the VM yet, or
 - port `80` blocked, or
 - another service already bound to `80/443`.
+
+If HTTP works but you see "Welcome to nginx!", the nginx container is serving its stock default config.
+Fix: make sure the VM has the latest `ops/nginx/templates/walks.conf.template` and recreate nginx:
+
+```sh
+cd /opt/walks-server/ops
+sudo docker compose -f docker-compose.prod.yml --env-file /opt/walks-server/.env up -d --force-recreate nginx
+```
 
 ## 6) Contentful Credentials
 
